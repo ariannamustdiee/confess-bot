@@ -327,9 +327,15 @@ async def on_interaction(interaction: discord.Interaction):
         await interaction.response.edit_message(embed=original_embed, view=None)
 
 
+MY_GUILD_ID = 873884389589811231
+
+
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
+    guild = discord.Object(id=MY_GUILD_ID)
+    bot.tree.copy_global_to(guild=guild)
+    await bot.tree.sync(guild=guild)  # instant sync for this server
+    await bot.tree.sync()  # global sync (can take up to an hour to propagate)
     print(f"Logged in as {bot.user} - commands synced")
 
 
