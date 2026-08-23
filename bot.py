@@ -6,7 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-DB_PATH = "confessioni.db"
+DB_PATH = "confessions.db"
 TOKEN = os.environ["DISCORD_TOKEN"]
 
 intents = discord.Intents.default()
@@ -134,11 +134,11 @@ init_db()
 
 
 # ---------------------------------------------------------------------
-# MODAL - form che l'utente compila per inviare la confessione
+# MODAL - the form the user fills in to submit a confession
 # ---------------------------------------------------------------------
-class ConfessModal(discord.ui.Modal, title="Nuova Confessione"):
+class ConfessModal(discord.ui.Modal, title="New Confession"):
     content = discord.ui.TextInput(
-        label="Scrivi la tua confessione",
+        label="Write your confession",
         style=discord.TextStyle.paragraph,
         max_length=1000,
         required=True,
@@ -148,7 +148,7 @@ class ConfessModal(discord.ui.Modal, title="Nuova Confessione"):
         cfg = get_config(interaction.guild_id)
         if not cfg or not cfg["review_channel"]:
             await interaction.response.send_message(
-                "Il bot non è ancora configurato. Chiedi a uno staff di eseguire /setup.",
+                "This bot hasn't been set up yet. Ask a staff member to run /setup.",
                 ephemeral=True,
             )
             return
@@ -156,7 +156,7 @@ class ConfessModal(discord.ui.Modal, title="Nuova Confessione"):
         review_channel = interaction.guild.get_channel(cfg["review_channel"])
         if review_channel is None:
             await interaction.response.send_message(
-                "Canale di review non trovato, contatta lo staff.", ephemeral=True
+                "Review channel not found, please contact staff.", ephemeral=True
             )
             return
 
@@ -165,13 +165,13 @@ class ConfessModal(discord.ui.Modal, title="Nuova Confessione"):
         )
 
         embed = discord.Embed(
-            title=f"Nuova confessione da revisionare (ID interno #{cid})",
+            title=f"New confession pending review (internal #{cid})",
             description=str(self.content),
             color=discord.Color.blurple(),
             timestamp=datetime.datetime.utcnow(),
         )
         embed.add_field(
-            name="Autore (visibile solo qui allo staff)",
+            name="Author (visible to staff only, here)",
             value=f"{interaction.user.mention} ({interaction.user.id})",
             inline=False,
         )
@@ -179,63 +179,63 @@ class ConfessModal(discord.ui.Modal, title="Nuova Confessione"):
         view = discord.ui.View(timeout=None)
         view.add_item(
             discord.ui.Button(
-                label="Accetta", style=discord.ButtonStyle.success, custom_id=f"confess_accept_{cid}"
+                label="Accept", style=discord.ButtonStyle.success, custom_id=f"confess_accept_{cid}"
             )
         )
         view.add_item(
             discord.ui.Button(
-                label="Rifiuta", style=discord.ButtonStyle.danger, custom_id=f"confess_reject_{cid}"
+                label="Reject", style=discord.ButtonStyle.danger, custom_id=f"confess_reject_{cid}"
             )
         )
 
         await review_channel.send(embed=embed, view=view)
         await interaction.response.send_message(
-            "La tua confessione è stata inviata allo staff per la revisione. Grazie!", ephemeral=True
+            "Your confession has been sent to staff for review. Thank you!", ephemeral=True
         )
 
 
 # ---------------------------------------------------------------------
-# COMANDI SLASH
+# SLASH COMMANDS
 # ---------------------------------------------------------------------
-@bot.tree.command(name="confess", description="Invia una confessione anonima")
+@bot.tree.command(name="confess", description="Submit an anonymous confession")
 async def confess(interaction: discord.Interaction):
     await interaction.response.send_modal(ConfessModal())
 
 
-@bot.tree.command(name="setup", description="Configura i canali del bot confessioni (solo staff)")
+@bot.tree.command(name="setup", description="Configure the confessions bot channels (staff only)")
 @app_commands.describe(
-    canale_confessioni="Canale pubblico dove verranno postate le confessioni approvate",
-    canale_review="Canale privato staff dove arrivano le confessioni da approvare",
-    canale_log="Canale privato staff dove viene registrato chi ha approvato/rifiutato",
-    ruolo_staff="Ruolo che può approvare/rifiutare le confessioni",
+    confessions_channel="Public channel where approved confessions will be posted",
+    review_channel="Private staff channel where new confessions arrive for approval",
+    log_channel="Private staff channel where accept/reject decisions are logged",
+    staff_role="Role allowed to accept or reject confessions",
 )
 @app_commands.default_permissions(manage_guild=True)
 async def setup(
     interaction: discord.Interaction,
-    canale_confessioni: discord.TextChannel,
-    canale_review: discord.TextChannel,
-    canale_log: discord.TextChannel,
-    ruolo_staff: discord.Role,
+    confessions_channel: discord.TextChannel,
+    review_channel: discord.TextChannel,
+    log_channel: discord.TextChannel,
+    staff_role: discord.Role,
 ):
     set_config(
         interaction.guild_id,
-        confess_channel=canale_confessioni.id,
-        review_channel=canale_review.id,
-        log_channel=canale_log.id,
-        staff_role=ruolo_staff.id,
+        confess_channel=confessions_channel.id,
+        review_channel=review_channel.id,
+        log_channel=log_channel.id,
+        staff_role=staff_role.id,
     )
     await interaction.response.send_message(
-        "Configurazione salvata!\n"
-        f"- Confessioni pubbliche: {canale_confessioni.mention}\n"
-        f"- Review staff: {canale_review.mention}\n"
-        f"- Log staff: {canale_log.mention}\n"
-        f"- Ruolo staff: {ruolo_staff.mention}",
+        "Configuration saved!\n"
+        f"- Public confessions: {confessions_channel.mention}\n"
+        f"- Staff review: {review_channel.mention}\n"
+        f"- Staff log: {log_channel.mention}\n"
+        f"- Staff role: {staff_role.mention}",
         ephemeral=True,
     )
 
 
 # ---------------------------------------------------------------------
-# GESTIONE BOTTONI ACCETTA / RIFIUTA
+# HANDLE ACCEPT / REJECT BUTTONS
 # ---------------------------------------------------------------------
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -251,10 +251,10 @@ async def on_interaction(interaction: discord.Interaction):
 
     confession = get_confession(cid)
     if confession is None:
-        await interaction.response.send_message("Confessione non trovata nel database.", ephemeral=True)
+        await interaction.response.send_message("Confession not found in the database.", ephemeral=True)
         return
     if confession["status"] != "pending":
-        await interaction.response.send_message("Questa confessione è già stata gestita.", ephemeral=True)
+        await interaction.response.send_message("This confession has already been handled.", ephemeral=True)
         return
 
     cfg = get_config(interaction.guild_id)
@@ -266,7 +266,7 @@ async def on_interaction(interaction: discord.Interaction):
 
     if not has_perm:
         await interaction.response.send_message(
-            "Non hai il permesso di gestire le confessioni.", ephemeral=True
+            "You don't have permission to manage confessions.", ephemeral=True
         )
         return
 
@@ -279,7 +279,7 @@ async def on_interaction(interaction: discord.Interaction):
         confess_channel = interaction.guild.get_channel(cfg["confess_channel"]) if cfg else None
         if confess_channel:
             public_embed = discord.Embed(
-                title=f"Confessione #{number:03}",
+                title=f"Confession #{number:03}",
                 description=confession["content"],
                 color=discord.Color.blurple(),
                 timestamp=datetime.datetime.utcnow(),
@@ -288,16 +288,16 @@ async def on_interaction(interaction: discord.Interaction):
 
         log_channel = interaction.guild.get_channel(cfg["log_channel"]) if cfg and cfg["log_channel"] else None
         if log_channel:
-            log_embed = discord.Embed(title=f"Confessione #{number:03} approvata", color=discord.Color.green())
-            log_embed.add_field(name="Contenuto", value=confession["content"], inline=False)
+            log_embed = discord.Embed(title=f"Confession #{number:03} approved", color=discord.Color.green())
+            log_embed.add_field(name="Content", value=confession["content"], inline=False)
             log_embed.add_field(
-                name="Autore", value=f"<@{confession['user_id']}> ({confession['user_id']})", inline=True
+                name="Author", value=f"<@{confession['user_id']}> ({confession['user_id']})", inline=True
             )
-            log_embed.add_field(name="Approvata da", value=f"{member.mention} ({member.id})", inline=True)
+            log_embed.add_field(name="Approved by", value=f"{member.mention} ({member.id})", inline=True)
             await log_channel.send(embed=log_embed)
 
         original_embed.add_field(
-            name="Stato", value=f"Approvata da {member.mention} — #{number:03}", inline=False
+            name="Status", value=f"Approved by {member.mention} — #{number:03}", inline=False
         )
         await interaction.response.edit_message(embed=original_embed, view=None)
 
@@ -306,22 +306,22 @@ async def on_interaction(interaction: discord.Interaction):
 
         log_channel = interaction.guild.get_channel(cfg["log_channel"]) if cfg and cfg["log_channel"] else None
         if log_channel:
-            log_embed = discord.Embed(title="Confessione rifiutata", color=discord.Color.red())
-            log_embed.add_field(name="Contenuto", value=confession["content"], inline=False)
+            log_embed = discord.Embed(title="Confession rejected", color=discord.Color.red())
+            log_embed.add_field(name="Content", value=confession["content"], inline=False)
             log_embed.add_field(
-                name="Autore", value=f"<@{confession['user_id']}> ({confession['user_id']})", inline=True
+                name="Author", value=f"<@{confession['user_id']}> ({confession['user_id']})", inline=True
             )
-            log_embed.add_field(name="Rifiutata da", value=f"{member.mention} ({member.id})", inline=True)
+            log_embed.add_field(name="Rejected by", value=f"{member.mention} ({member.id})", inline=True)
             await log_channel.send(embed=log_embed)
 
-        original_embed.add_field(name="Stato", value=f"Rifiutata da {member.mention}", inline=False)
+        original_embed.add_field(name="Status", value=f"Rejected by {member.mention}", inline=False)
         await interaction.response.edit_message(embed=original_embed, view=None)
 
 
 @bot.event
 async def on_ready():
     await bot.tree.sync()
-    print(f"Loggato come {bot.user} - comandi sincronizzati")
+    print(f"Logged in as {bot.user} - commands synced")
 
 
 bot.run(TOKEN)
