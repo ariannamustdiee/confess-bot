@@ -188,7 +188,16 @@ class ConfessModal(discord.ui.Modal, title="New Confession"):
             )
         )
 
-        await review_channel.send(embed=embed, view=view)
+        ping_content = None
+        if cfg["staff_role"]:
+            ping_content = f"<@&{cfg['staff_role']}>"
+
+        await review_channel.send(
+            content=ping_content,
+            embed=embed,
+            view=view,
+            allowed_mentions=discord.AllowedMentions(roles=True),
+        )
         await interaction.response.send_message(
             "Your confession has been sent to staff for review. Thank you!", ephemeral=True
         )
