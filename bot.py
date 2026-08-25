@@ -172,10 +172,13 @@ def make_decision_view(cid):
     return view
 
 
-def make_reply_view(number):
+def make_public_view(number):
     view = discord.ui.View(timeout=None)
     view.add_item(
         discord.ui.Button(label="Reply", style=discord.ButtonStyle.secondary, custom_id=f"reply_start_{number}")
+    )
+    view.add_item(
+        discord.ui.Button(label="Confess", style=discord.ButtonStyle.primary, custom_id="confess_start")
     )
     return view
 
@@ -355,6 +358,11 @@ async def on_interaction(interaction: discord.Interaction):
         await interaction.response.send_modal(ReplyModal(parent_number=number))
         return
 
+    # ---- "Confess" button on a public confession ----
+    if custom_id == "confess_start":
+        await interaction.response.send_modal(ConfessModal())
+        return
+
     if not custom_id.startswith("confess_"):
         return
 
@@ -435,7 +443,7 @@ async def on_interaction(interaction: discord.Interaction):
                     color=discord.Color.blurple(),
                     timestamp=datetime.datetime.utcnow(),
                 )
-                sent_message = await confess_channel.send(embed=public_embed, view=make_reply_view(number))
+                sent_message = await confess_channel.send(embed=public_embed, view=make_public_view(number))
                 set_public_message(cid, sent_message.id)
 
             log_channel = interaction.guild.get_channel(cfg["log_channel"]) if cfg and cfg["log_channel"] else None
