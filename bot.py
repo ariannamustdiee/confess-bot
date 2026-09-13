@@ -489,8 +489,12 @@ MY_GUILD_ID = 873884389589811231
 @bot.event
 async def on_ready():
     guild = discord.Object(id=MY_GUILD_ID)
-    bot.tree.copy_global_to(guild=guild)
-    await bot.tree.sync(guild=guild)  # instant sync for this server
+    try:
+        bot.tree.copy_global_to(guild=guild)
+        await bot.tree.sync(guild=guild)  # instant sync for this server
+        print("Instant guild sync succeeded.")
+    except discord.Forbidden as e:
+        print(f"Instant guild sync failed (will rely on global sync instead): {e}")
     await bot.tree.sync()  # global sync (can take up to an hour to propagate)
     print(f"Logged in as {bot.user} - commands synced")
 
